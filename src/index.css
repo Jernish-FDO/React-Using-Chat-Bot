@@ -1,68 +1,442 @@
-:root {
-  font-family: system-ui, Avenir, Helvetica, Arial, sans-serif;
-  line-height: 1.5;
-  font-weight: 400;
+/* All @imports must come first */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap');
+@import 'katex/dist/katex.min.css';
+@import 'highlight.js/styles/github-dark.css';
+@import "tailwindcss";
 
-  color-scheme: light dark;
-  color: rgba(255, 255, 255, 0.87);
-  background-color: #242424;
+/* Custom colors using CSS custom properties for Tailwind v4 */
+@theme {
+  --color-dark-50: #f7f7f8;
+  --color-dark-100: #ececf1;
+  --color-dark-200: #d9d9e3;
+  --color-dark-300: #c5c5d2;
+  --color-dark-400: #acacbe;
+  --color-dark-500: #8e8ea0;
+  --color-dark-600: #565869;
+  --color-dark-700: #40414f;
+  --color-dark-800: #343541;
+  --color-dark-900: #202123;
+  --color-dark-950: #0d0d0f;
 
-  font-synthesis: none;
-  text-rendering: optimizeLegibility;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
+  --color-accent-primary: #10a37f;
+  --color-accent-secondary: #1a7f64;
+  --color-accent-hover: #0d8a6a;
+
+  --font-sans: 'Inter', system-ui, -apple-system, sans-serif;
+  --font-mono: 'JetBrains Mono', 'Fira Code', monospace;
 }
 
-a {
-  font-weight: 500;
-  color: #646cff;
-  text-decoration: inherit;
-}
-a:hover {
-  color: #535bf2;
+/* Base styles */
+@layer base {
+  * {
+    border-color: var(--color-dark-700);
+  }
+
+  body {
+    background-color: var(--color-dark-900);
+    color: var(--color-dark-100);
+    font-family: var(--font-sans);
+  }
+
+  /* Custom scrollbar */
+  ::-webkit-scrollbar {
+    width: 0.5rem;
+  }
+
+  ::-webkit-scrollbar-track {
+    background-color: var(--color-dark-900);
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background-color: var(--color-dark-600);
+    border-radius: 9999px;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    background-color: var(--color-dark-500);
+  }
+
+  /* Selection */
+  ::selection {
+    background-color: color-mix(in srgb, var(--color-accent-primary) 30%, transparent);
+    color: white;
+  }
 }
 
-body {
-  margin: 0;
+/* Component styles */
+@layer components {
+
+  /* Glass effect for cards and panels */
+  .glass {
+    background-color: color-mix(in srgb, var(--color-dark-800) 80%, transparent);
+    backdrop-filter: blur(24px);
+    border: 1px solid color-mix(in srgb, var(--color-dark-700) 50%, transparent);
+  }
+
+  .glass-hover {
+    background-color: color-mix(in srgb, var(--color-dark-800) 80%, transparent);
+    backdrop-filter: blur(24px);
+    border: 1px solid color-mix(in srgb, var(--color-dark-700) 50%, transparent);
+    transition: background-color 200ms;
+  }
+
+  .glass-hover:hover {
+    background-color: color-mix(in srgb, var(--color-dark-700) 80%, transparent);
+  }
+
+  /* Primary button */
+  .btn-primary {
+    padding: 0.5rem 1rem;
+    background-color: var(--color-accent-primary);
+    color: white;
+    font-weight: 500;
+    border-radius: 0.5rem;
+    transition: all 200ms;
+  }
+
+  .btn-primary:hover {
+    background-color: var(--color-accent-hover);
+  }
+
+  .btn-primary:active {
+    transform: scale(0.95);
+  }
+
+  .btn-primary:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+
+  /* Ghost button */
+  .btn-ghost {
+    padding: 0.5rem 1rem;
+    color: var(--color-dark-300);
+    font-weight: 500;
+    border-radius: 0.5rem;
+    transition: all 200ms;
+  }
+
+  .btn-ghost:hover {
+    background-color: var(--color-dark-700);
+    color: white;
+  }
+
+  /* Icon button */
+  .btn-icon {
+    padding: 0.5rem;
+    color: var(--color-dark-400);
+    border-radius: 0.5rem;
+    transition: all 200ms;
+  }
+
+  .btn-icon:hover {
+    background-color: var(--color-dark-700);
+    color: white;
+  }
+
+  /* Input styles */
+  .input-base {
+    width: 100%;
+    padding: 0.75rem 1rem;
+    background-color: var(--color-dark-800);
+    border: 1px solid var(--color-dark-600);
+    border-radius: 0.75rem;
+    color: var(--color-dark-100);
+    transition: all 200ms;
+  }
+
+  .input-base::placeholder {
+    color: var(--color-dark-500);
+  }
+
+  .input-base:focus {
+    outline: none;
+    border-color: var(--color-accent-primary);
+    box-shadow: 0 0 0 2px color-mix(in srgb, var(--color-accent-primary) 50%, transparent);
+  }
+
+  /* Chat message bubbles */
+  .message-user {
+    background-color: color-mix(in srgb, var(--color-accent-primary) 10%, transparent);
+    border: 1px solid color-mix(in srgb, var(--color-accent-primary) 20%, transparent);
+    border-radius: 1rem;
+    border-bottom-right-radius: 0.25rem;
+  }
+
+  .message-assistant {
+    background-color: var(--color-dark-800);
+    border: 1px solid var(--color-dark-700);
+    border-radius: 1rem;
+    border-bottom-left-radius: 0.25rem;
+  }
+
+  /* Tool status indicator */
+  .status-dot {
+    width: 0.5rem;
+    height: 0.5rem;
+    border-radius: 9999px;
+  }
+
+  .status-dot.active {
+    background-color: #22c55e;
+    animation: pulse-subtle 2s ease-in-out infinite;
+  }
+
+  .status-dot.inactive {
+    background-color: var(--color-dark-500);
+  }
+
+  .status-dot.loading {
+    background-color: #eab308;
+    animation: thinking 1.5s ease-in-out infinite;
+  }
+
+  /* Research progress bar */
+  .progress-bar {
+    height: 0.25rem;
+    background-color: var(--color-dark-700);
+    border-radius: 9999px;
+    overflow: hidden;
+  }
+
+  .progress-fill {
+    height: 100%;
+    background: linear-gradient(to right, var(--color-accent-primary), #3b82f6);
+    border-radius: 9999px;
+    transition: all 500ms ease-out;
+  }
+}
+
+/* Utility styles */
+@layer utilities {
+
+  /* Gradient text */
+  .gradient-text {
+    background: linear-gradient(to right, var(--color-accent-primary), #60a5fa, #a78bfa);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+
+  /* Fade edges for scrollable content */
+  .fade-edges {
+    mask-image: linear-gradient(to bottom,
+        transparent 0%,
+        black 5%,
+        black 95%,
+        transparent 100%);
+  }
+
+  /* Hide scrollbar but keep functionality */
+  .scrollbar-hide {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;
+  }
+
+  /* Glow effect */
+  .glow {
+    box-shadow: 0 0 20px color-mix(in srgb, var(--color-accent-primary) 30%, transparent);
+  }
+
+  .glow-lg {
+    box-shadow: 0 0 40px color-mix(in srgb, var(--color-accent-primary) 40%, transparent);
+  }
+}
+
+/* Animations */
+@keyframes pulse-subtle {
+
+  0%,
+  100% {
+    opacity: 1;
+  }
+
+  50% {
+    opacity: 0.7;
+  }
+}
+
+@keyframes thinking {
+
+  0%,
+  100% {
+    opacity: 0.4;
+  }
+
+  50% {
+    opacity: 1;
+  }
+}
+
+@keyframes fadeIn {
+  0% {
+    opacity: 0;
+  }
+
+  100% {
+    opacity: 1;
+  }
+}
+
+@keyframes slideUp {
+  0% {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Markdown content styles */
+.markdown-content {
+  max-width: none;
+}
+
+.markdown-content h1,
+.markdown-content h2,
+.markdown-content h3,
+.markdown-content h4 {
+  color: var(--color-dark-100);
+  font-weight: 600;
+  margin-top: 1.5rem;
+  margin-bottom: 0.75rem;
+}
+
+.markdown-content h1:first-child,
+.markdown-content h2:first-child,
+.markdown-content h3:first-child {
+  margin-top: 0;
+}
+
+.markdown-content h1 {
+  font-size: 1.5rem;
+}
+
+.markdown-content h2 {
+  font-size: 1.25rem;
+}
+
+.markdown-content h3 {
+  font-size: 1.125rem;
+}
+
+.markdown-content p {
+  color: var(--color-dark-200);
+  line-height: 1.625;
+  margin: 0.75rem 0;
+}
+
+.markdown-content ul,
+.markdown-content ol {
+  margin: 0.75rem 0;
+  margin-left: 1rem;
+}
+
+.markdown-content li {
+  color: var(--color-dark-200);
+}
+
+.markdown-content code:not(pre code) {
+  padding: 0.125rem 0.375rem;
+  background-color: var(--color-dark-700);
+  color: var(--color-accent-primary);
+  border-radius: 0.25rem;
+  font-size: 0.875rem;
+  font-family: var(--font-mono);
+}
+
+.markdown-content pre {
+  margin: 1rem 0;
+  padding: 0;
+  background-color: transparent;
+}
+
+.markdown-content blockquote {
+  border-left: 4px solid color-mix(in srgb, var(--color-accent-primary) 50%, transparent);
+  padding-left: 1rem;
+  margin: 1rem 0;
+  font-style: italic;
+  color: var(--color-dark-300);
+}
+
+.markdown-content a {
+  color: #60a5fa;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.markdown-content a:hover {
+  color: #93c5fd;
+}
+
+.markdown-content table {
+  width: 100%;
+  margin: 1rem 0;
+  border-collapse: collapse;
+}
+
+.markdown-content th {
+  background-color: var(--color-dark-800);
+  padding: 0.5rem 1rem;
+  text-align: left;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--color-dark-200);
+  border: 1px solid var(--color-dark-600);
+}
+
+.markdown-content td {
+  padding: 0.5rem 1rem;
+  font-size: 0.875rem;
+  color: var(--color-dark-300);
+  border: 1px solid var(--color-dark-700);
+}
+
+.markdown-content hr {
+  margin: 1.5rem 0;
+  border-color: var(--color-dark-700);
+}
+
+/* Thinking animation for AI responses */
+.thinking-dots {
   display: flex;
-  place-items: center;
-  min-width: 320px;
-  min-height: 100vh;
+  gap: 0.25rem;
 }
 
-h1 {
-  font-size: 3.2em;
-  line-height: 1.1;
+.thinking-dots span {
+  width: 0.5rem;
+  height: 0.5rem;
+  background-color: color-mix(in srgb, var(--color-accent-primary) 60%, transparent);
+  border-radius: 9999px;
+  animation: thinkingDot 1.4s ease-in-out infinite;
 }
 
-button {
-  border-radius: 8px;
-  border: 1px solid transparent;
-  padding: 0.6em 1.2em;
-  font-size: 1em;
-  font-weight: 500;
-  font-family: inherit;
-  background-color: #1a1a1a;
-  cursor: pointer;
-  transition: border-color 0.25s;
-}
-button:hover {
-  border-color: #646cff;
-}
-button:focus,
-button:focus-visible {
-  outline: 4px auto -webkit-focus-ring-color;
+.thinking-dots span:nth-child(2) {
+  animation-delay: 0.2s;
 }
 
-@media (prefers-color-scheme: light) {
-  :root {
-    color: #213547;
-    background-color: #ffffff;
+.thinking-dots span:nth-child(3) {
+  animation-delay: 0.4s;
+}
+
+@keyframes thinkingDot {
+
+  0%,
+  80%,
+  100% {
+    transform: scale(0.6);
+    opacity: 0.6;
   }
-  a:hover {
-    color: #747bff;
-  }
-  button {
-    background-color: #f9f9f9;
+
+  40% {
+    transform: scale(1);
+    opacity: 1;
   }
 }
