@@ -1,5 +1,5 @@
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, RotateCcw, Save, Settings2, Key, Cpu, Eye, EyeOff } from 'lucide-react';
+import { X, RotateCcw, Save, Settings2, Key, Eye, EyeOff } from 'lucide-react';
 import { useSettingsStore } from '@/stores/settingsStore';
 import { useApiKeyStore, type APIKeys } from '@/stores/apiKeyStore';
 import { Button } from '@/components/ui/Button';
@@ -98,7 +98,7 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                                     onClick={() => setActiveTab('model')}
                                     className={`flex-1 flex items-center justify-center gap-2 py-2 text-sm font-medium rounded-lg transition-all ${activeTab === 'model' ? 'bg-dark-700 text-white shadow-sm' : 'text-dark-400 hover:text-dark-200'}`}
                                 >
-                                    <Cpu size={16} />
+                                    <Settings2 size={16} />
                                     Model
                                 </button>
                                 <button
@@ -226,7 +226,7 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                             </Button>
                             <div className="flex items-center gap-3">
                                 <Button
-                                    variant="outline"
+                                    variant="secondary"
                                     size="sm"
                                     onClick={onClose}
                                     className="rounded-xl"
@@ -249,4 +249,3 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
         </AnimatePresence>
     );
 }
-
