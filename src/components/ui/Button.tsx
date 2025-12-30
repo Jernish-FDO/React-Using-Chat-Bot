@@ -10,10 +10,10 @@ export interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
 }
 
 const variants = {
-    primary: 'bg-accent-primary text-white hover:bg-accent-hover',
-    secondary: 'bg-dark-700 text-dark-100 hover:bg-dark-600 border border-dark-600',
-    ghost: 'bg-transparent text-dark-300 hover:bg-dark-700 hover:text-white',
-    danger: 'bg-red-600 text-white hover:bg-red-700',
+    primary: 'bg-gradient-to-br from-accent-primary to-accent-hover text-white shadow-lg shadow-accent-primary/25',
+    secondary: 'bg-dark-800 text-dark-100 hover:bg-dark-700 border border-dark-700 glass',
+    ghost: 'bg-transparent text-dark-300 hover:bg-dark-800 hover:text-white',
+    danger: 'bg-red-500 text-white hover:bg-red-600 shadow-lg shadow-red-500/20',
 };
 
 const sizes = {
@@ -42,7 +42,7 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
                 ref={ref}
                 className={`
           inline-flex items-center justify-center gap-2
-          font-medium rounded-lg
+          font-semibold rounded-xl
           transition-all duration-200
           active:scale-[0.97]
           disabled:opacity-50 disabled:cursor-not-allowed disabled:active:scale-100

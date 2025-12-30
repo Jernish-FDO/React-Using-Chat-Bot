@@ -58,7 +58,7 @@ export function MessageInput({
     const canSend = input.trim().length > 0 && !isGenerating && !disabled;
 
     return (
-        <div className="border-t border-dark-700 bg-dark-900/80 backdrop-blur-xl">
+        <div className="bg-transparent">
             {/* Error display */}
             <AnimatePresence>
                 {error && (
@@ -68,19 +68,19 @@ export function MessageInput({
                         exit={{ height: 0, opacity: 0 }}
                         className="overflow-hidden"
                     >
-                        <div className="flex items-center gap-2 px-4 py-2 bg-red-500/10 border-b border-red-500/20">
-                            <AlertCircle size={14} className="text-red-400" />
-                            <span className="text-sm text-red-400">{error}</span>
+                        <div className="flex items-center gap-2 px-4 py-3 bg-red-500/10 border-b border-red-500/20">
+                            <AlertCircle size={16} className="text-red-400" />
+                            <span className="text-sm font-medium text-red-400">{error}</span>
                         </div>
                     </motion.div>
                 )}
             </AnimatePresence>
 
-            <form onSubmit={handleSubmit} className="p-4">
-                <div className="relative flex items-end gap-2 p-2 rounded-2xl bg-dark-800 border border-dark-600 focus-within:border-accent-primary focus-within:ring-1 focus-within:ring-accent-primary/50 transition-all">
+            <form onSubmit={handleSubmit} className="px-4 pb-2 pt-2 md:px-6 md:pb-3 md:pt-4 bg-transparent outline-none">
+                <div className="relative flex items-end gap-2 md:gap-3 p-2 md:p-3 rounded-[1.5rem] md:rounded-[2rem] bg-dark-800/80 border border-dark-700 focus-within:border-accent-primary focus-within:ring-4 focus-within:ring-accent-primary/10 transition-all shadow-2xl glass-hover">
                     {/* Sparkle icon */}
-                    <div className="flex-shrink-0 flex items-center justify-center w-8 h-8 mb-0.5">
-                        <Sparkles size={18} className="text-dark-500" />
+                    <div className="flex-shrink-0 flex items-center justify-center w-9 h-9 md:w-10 md:h-10 mb-0.5 rounded-xl md:rounded-2xl bg-accent-primary/5">
+                        <Sparkles size={18} className="text-accent-primary animate-pulse" />
                     </div>
 
                     {/* Textarea */}
@@ -92,7 +92,7 @@ export function MessageInput({
                         placeholder={placeholder}
                         disabled={disabled}
                         rows={1}
-                        className="flex-1 bg-transparent text-dark-100 placeholder-dark-500 resize-none outline-none text-sm py-2 max-h-[200px]"
+                        className="flex-1 bg-transparent text-dark-100 placeholder-dark-500 resize-none outline-none font-medium py-2.5 max-h-[200px]"
                         style={{ scrollbarWidth: 'none' }}
                     />
 
@@ -103,18 +103,18 @@ export function MessageInput({
                         whileHover={{ scale: canSend ? 1.05 : 1 }}
                         whileTap={{ scale: canSend ? 0.95 : 1 }}
                         className={`
-              flex-shrink-0 flex items-center justify-center w-8 h-8 mb-0.5 rounded-lg
-              transition-all duration-200
+              flex-shrink-0 flex items-center justify-center w-10 h-10 mb-0.5 rounded-2xl
+              transition-all duration-300 shadow-lg
               ${canSend
-                                ? 'bg-accent-primary text-white hover:bg-accent-hover'
-                                : 'bg-dark-700 text-dark-500 cursor-not-allowed'
+                                ? 'bg-gradient-to-br from-accent-primary to-accent-hover text-white shadow-accent-primary/25'
+                                : 'bg-dark-700 text-dark-500 cursor-not-allowed opacity-50'
                             }
             `}
                     >
                         {isGenerating ? (
-                            <Loader2 size={16} className="animate-spin" />
+                            <Loader2 size={18} className="animate-spin" />
                         ) : (
-                            <Send size={16} />
+                            <Send size={18} className={canSend ? "translate-x-0.5 -translate-y-0.5" : ""} />
                         )}
                     </motion.button>
                 </div>

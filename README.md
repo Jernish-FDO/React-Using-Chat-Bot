@@ -2,7 +2,7 @@
 
 An advanced AI Assistant web application built with React, TypeScript, and Vite. Features real-time web browsing via Tavily API, Gemini AI integration, markdown rendering with syntax highlighting, and a modern dark-themed UI.
 
-![AI Assistant](https://img.shields.io/badge/AI-Gemini%202.0%20Flash-blue)
+![AI Assistant](https://img.shields.io/badge/AI-Gemini%202.5%20Flash-blue)
 ![React](https://img.shields.io/badge/React-18.3-61DAFB)
 ![TypeScript](https://img.shields.io/badge/TypeScript-5.4-3178C6)
 ![Tailwind CSS](https://img.shields.io/badge/Tailwind%20CSS-4.0-06B6D4)

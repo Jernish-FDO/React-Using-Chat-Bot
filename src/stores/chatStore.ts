@@ -1,15 +1,26 @@
-// Chat state management with Zustand
+import {
+    doc,
+    setDoc,
+    deleteDoc,
+    collection,
+    query,
+    getDocs,
+    orderBy
+} from 'firebase/firestore';
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { immer } from 'zustand/middleware/immer';
-import type { Message, Conversation } from '@/types/chat';
-import { generateId } from '@/utils/helpers';
+import { db } from '@/lib/firebase/config';
+import { useAuthStore } from './authStore';
+import type { Conversation, Message } from '../types/chat';
+import { generateId } from '../utils/helpers';
 
 interface ChatState {
     // State
     conversations: Conversation[];
     activeConversationId: string | null;
     isGenerating: boolean;
+    loading: boolean;
     error: string | null;
 
     // Actions
@@ -17,6 +28,7 @@ interface ChatState {
     deleteConversation: (id: string) => void;
     setActiveConversation: (id: string | null) => void;
     updateConversationTitle: (id: string, title: string) => void;
+    setConversations: (conversations: Conversation[]) => void;
 
     addMessage: (conversationId: string, message: Omit<Message, 'id' | 'timestamp'>) => Message;
     updateMessage: (conversationId: string, messageId: string, updates: Partial<Message>) => void;
@@ -25,11 +37,25 @@ interface ChatState {
     setGenerating: (generating: boolean) => void;
     setError: (error: string | null) => void;
     clearError: () => void;
+    fetchConversations: () => Promise<void>;
 
     // Getters (computed)
     getActiveConversation: () => Conversation | undefined;
     getConversation: (id: string) => Conversation | undefined;
 }
+
+// Helper to sync a single conversation to Firestore
+const syncConversationToFirestore = async (userId: string, conversation: Conversation) => {
+    try {
+        const docRef = doc(db, `users/${userId}/conversations`, conversation.id);
+        await setDoc(docRef, {
+            ...conversation,
+            updatedAt: new Date(),
+        });
+    } catch (error) {
+        console.error('Error syncing to Firestore:', error);
+    }
+};
 
 export const useChatStore = create<ChatState>()(
     persist(
@@ -37,13 +63,15 @@ export const useChatStore = create<ChatState>()(
             conversations: [],
             activeConversationId: null,
             isGenerating: false,
+            loading: false,
             error: null,
 
             createConversation: (title) => {
                 const id = generateId();
+                const { user } = useAuthStore.getState();
                 const newConversation: Conversation = {
                     id,
-                    userId: '', // Will be set when auth is implemented
+                    userId: user?.uid || '',
                     title: title || 'New Chat',
                     createdAt: new Date(),
                     updatedAt: new Date(),
@@ -58,10 +86,15 @@ export const useChatStore = create<ChatState>()(
                     state.activeConversationId = id;
                 });
 
+                if (user) {
+                    syncConversationToFirestore(user.uid, newConversation);
+                }
+
                 return id;
             },
 
             deleteConversation: (id) => {
+                const { user } = useAuthStore.getState();
                 set((state) => {
                     const index = state.conversations.findIndex(c => c.id === id);
                     if (index !== -1) {
@@ -71,6 +104,11 @@ export const useChatStore = create<ChatState>()(
                         state.activeConversationId = state.conversations[0]?.id ?? null;
                     }
                 });
+
+                if (user) {
+                    deleteDoc(doc(db, `users/${user.uid}/conversations`, id))
+                        .catch(err => console.error('Error deleting from Firestore:', err));
+                }
             },
 
             setActiveConversation: (id) => {
@@ -81,6 +119,7 @@ export const useChatStore = create<ChatState>()(
             },
 
             updateConversationTitle: (id, title) => {
+                const { user } = useAuthStore.getState();
                 set((state) => {
                     const conversation = state.conversations.find(c => c.id === id);
                     if (conversation) {
@@ -88,9 +127,21 @@ export const useChatStore = create<ChatState>()(
                         conversation.updatedAt = new Date();
                     }
                 });
+
+                const conversation = get().conversations.find(c => c.id === id);
+                if (user && conversation) {
+                    syncConversationToFirestore(user.uid, conversation);
+                }
+            },
+
+            setConversations: (conversations) => {
+                set((state) => {
+                    state.conversations = conversations;
+                });
             },
 
             addMessage: (conversationId, messageData) => {
+                const { user } = useAuthStore.getState();
                 const message: Message = {
                     ...messageData,
                     id: generateId(),
@@ -119,10 +170,16 @@ export const useChatStore = create<ChatState>()(
                     }
                 });
 
+                const conversation = get().conversations.find(c => c.id === conversationId);
+                if (user && conversation) {
+                    syncConversationToFirestore(user.uid, conversation);
+                }
+
                 return message;
             },
 
             updateMessage: (conversationId, messageId, updates) => {
+                const { user } = useAuthStore.getState();
                 set((state) => {
                     const conversation = state.conversations.find(c => c.id === conversationId);
                     if (conversation) {
@@ -132,9 +189,15 @@ export const useChatStore = create<ChatState>()(
                         }
                     }
                 });
+
+                const conversation = get().conversations.find(c => c.id === conversationId);
+                if (user && conversation) {
+                    syncConversationToFirestore(user.uid, conversation);
+                }
             },
 
             deleteMessage: (conversationId, messageId) => {
+                const { user } = useAuthStore.getState();
                 set((state) => {
                     const conversation = state.conversations.find(c => c.id === conversationId);
                     if (conversation) {
@@ -145,6 +208,11 @@ export const useChatStore = create<ChatState>()(
                         }
                     }
                 });
+
+                const conversation = get().conversations.find(c => c.id === conversationId);
+                if (user && conversation) {
+                    syncConversationToFirestore(user.uid, conversation);
+                }
             },
 
             setGenerating: (generating) => {
@@ -164,6 +232,41 @@ export const useChatStore = create<ChatState>()(
                 set((state) => {
                     state.error = null;
                 });
+            },
+
+            fetchConversations: async () => {
+                const { user } = useAuthStore.getState();
+                if (!user) return;
+
+                set({ loading: true });
+                try {
+                    const q = query(
+                        collection(db, `users/${user.uid}/conversations`),
+                        orderBy('updatedAt', 'desc')
+                    );
+                    const querySnapshot = await getDocs(q);
+                    const conversations: Conversation[] = [];
+                    querySnapshot.forEach((doc) => {
+                        const data = doc.data();
+                        conversations.push({
+                            ...data,
+                            createdAt: data.createdAt.toDate ? data.createdAt.toDate() : new Date(data.createdAt),
+                            updatedAt: data.updatedAt.toDate ? data.updatedAt.toDate() : new Date(data.updatedAt),
+                            messages: (data.messages || []).map((m: Message) => {
+                                const timestamp = m.timestamp as unknown as { toDate?: () => Date };
+                                return {
+                                    ...m,
+                                    timestamp: timestamp.toDate ? timestamp.toDate() : new Date(m.timestamp),
+                                };
+                            }),
+                        } as Conversation);
+                    });
+                    set({ conversations });
+                } catch (error) {
+                    console.error('Error fetching conversations:', error);
+                } finally {
+                    set({ loading: false });
+                }
             },
 
             getActiveConversation: () => {

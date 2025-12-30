@@ -48,6 +48,30 @@ export const AVAILABLE_TOOLS: Tool[] = [
         enabled: true,
         requiresApiKey: true,
     },
+    {
+        id: 'weather',
+        name: 'Weather',
+        description: 'Get current weather and forecast for any city',
+        icon: 'cloud',
+        category: 'utility',
+        enabled: true,
+    },
+    {
+        id: 'stock_data',
+        name: 'Stocks & Crypto',
+        description: 'Get real-time prices for stocks, crypto, and forex',
+        icon: 'trending-up',
+        category: 'utility',
+        enabled: true,
+    },
+    {
+        id: 'image_generation',
+        name: 'Image Gen',
+        description: 'Generate stunning images from text descriptions',
+        icon: 'image',
+        category: 'analysis',
+        enabled: true,
+    },
 ];
 
 interface ToolState {

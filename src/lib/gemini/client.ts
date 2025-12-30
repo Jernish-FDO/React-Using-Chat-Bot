@@ -4,7 +4,8 @@ import {
     type GenerativeModel,
     type ChatSession,
     type FunctionDeclaration as GeminiFunctionDeclaration,
-    SchemaType
+    SchemaType,
+    type Content
 } from '@google/generative-ai';
 import { SYSTEM_PROMPT } from './prompts';
 import { FUNCTION_DECLARATIONS, executeToolCall } from './tools';
@@ -24,20 +25,28 @@ export interface SendMessageResult {
     finishReason?: string;
 }
 
-let genAI: GoogleGenerativeAI | null = null;
+// genAI instance cache
+const genAICache: Record<string, GoogleGenerativeAI> = {};
+
+import { useApiKeyStore } from '@/stores/apiKeyStore';
 
 /**
  * Initialize the Gemini client
  */
 function getClient(): GoogleGenerativeAI {
-    if (!genAI) {
-        const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
-        if (!apiKey) {
-            throw new Error('Gemini API key not configured. Please add VITE_GEMINI_API_KEY to your .env.local file.');
-        }
-        genAI = new GoogleGenerativeAI(apiKey);
+    const userApiKey = useApiKeyStore.getState().keys.gemini;
+    const envApiKey = import.meta.env.VITE_GEMINI_API_KEY;
+    const apiKey = userApiKey || envApiKey;
+
+    if (!apiKey) {
+        throw new Error('Gemini API key not configured. Please add it in Settings.');
     }
-    return genAI;
+
+    if (!genAICache[apiKey]) {
+        genAICache[apiKey] = new GoogleGenerativeAI(apiKey);
+    }
+
+    return genAICache[apiKey];
 }
 
 /**
@@ -89,14 +98,22 @@ function convertToGeminiFunctionDeclarations(enabledToolIds: string[]): GeminiFu
         }));
 }
 
+import { useSettingsStore } from '@/stores/settingsStore';
+
 /**
  * Create a generative model with the specified configuration
  */
 export function createModel(options: GeminiClientOptions = {}): GenerativeModel {
     const {
+        systemPrompt: storeSystemPrompt,
+        temperature: storeTemperature,
+        topP: storeTopP
+    } = useSettingsStore.getState();
+
+    const {
         model = 'gemini-2.5-flash-lite',
         enabledToolIds = [],
-        temperature = 0.7,
+        temperature = storeTemperature,
         maxOutputTokens = 8192,
     } = options;
 
@@ -105,10 +122,10 @@ export function createModel(options: GeminiClientOptions = {}): GenerativeModel 
 
     return client.getGenerativeModel({
         model,
-        systemInstruction: SYSTEM_PROMPT,
+        systemInstruction: storeSystemPrompt || SYSTEM_PROMPT,
         generationConfig: {
             temperature,
-            topP: 0.95,
+            topP: storeTopP || 0.95,
             topK: 64,
             maxOutputTokens,
         },
@@ -119,11 +136,11 @@ export function createModel(options: GeminiClientOptions = {}): GenerativeModel 
 }
 
 /**
- * Create a chat session
+ * Create a chat session with optional history
  */
-export function createChat(options: GeminiClientOptions = {}): ChatSession {
+export function createChat(options: GeminiClientOptions = {}, history: Content[] = []): ChatSession {
     const model = createModel(options);
-    return model.startChat();
+    return model.startChat({ history });
 }
 
 /**

@@ -5,7 +5,8 @@ import {
     Trash2,
     PlusCircle,
     Search,
-    ChevronLeft
+    ChevronLeft,
+    Menu
 } from 'lucide-react';
 import { useState } from 'react';
 import { Button } from '@/components/ui/Button';
@@ -69,28 +70,24 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
                 )}
             </AnimatePresence>
 
-            {/* Sidebar */}
             <motion.aside
                 initial={false}
                 animate={{ x: isOpen ? 0 : -280 }}
-                transition={{ type: 'spring', stiffness: 300, damping: 30 }}
-                className={`
-          fixed top-0 left-0 bottom-0 z-50 w-[280px]
-          flex flex-col
-          bg-dark-900 border-r border-dark-700
-          lg:relative lg:translate-x-0
-          ${isOpen ? '' : 'lg:flex hidden'}
-        `}
+                transition={{ type: 'spring', stiffness: 350, damping: 35 }}
+                className="fixed top-0 left-0 bottom-0 z-50 w-[280px] flex flex-col bg-dark-900 border-r border-dark-700 shadow-2xl lg:shadow-none"
             >
                 {/* Header */}
-                <div className="flex items-center justify-between p-4 border-b border-dark-700">
-                    <h2 className="font-semibold text-dark-100">Chats</h2>
-                    <button
-                        onClick={onClose}
-                        className="p-1.5 text-dark-400 hover:text-white hover:bg-dark-700 rounded-lg transition-colors lg:hidden"
-                    >
-                        <ChevronLeft size={18} />
-                    </button>
+                <div className="flex items-center justify-between p-5 border-b border-dark-700 bg-dark-800/30">
+                    <h2 className="font-bold text-white tracking-tight text-lg">Your Sessions</h2>
+                    {onClose && (
+                        <button
+                            onClick={onClose}
+                            className="p-1.5 text-dark-400 hover:text-white hover:bg-dark-700 rounded-lg transition-colors lg:hidden"
+                            aria-label="Close Sidebar"
+                        >
+                            <ChevronLeft size={20} />
+                        </button>
+                    )}
                 </div>
 
                 {/* New chat button */}
@@ -152,7 +149,7 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
                 </div>
 
                 {/* Tool toggles */}
-                <div className="p-3 border-t border-dark-700">
+                <div className="p-3 border-t border-dark-700 overflow-y-auto max-h-[45vh] scrollbar-hide">
                     <ToolTogglePanel />
                 </div>
             </motion.aside>
@@ -177,17 +174,22 @@ function ConversationItem({
     onDelete,
     onHover,
 }: ConversationItemProps) {
+    // DOM Nesting Fix Applied: Changed from motion.button to motion.div
     return (
-        <motion.button
+        <motion.div
+            layout
+            role="button"
+            tabIndex={0}
             onClick={onSelect}
             onMouseEnter={() => onHover(true)}
             onMouseLeave={() => onHover(false)}
+            onKeyDown={(e) => e.key === 'Enter' && onSelect()}
             className={`
-        w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-left
-        transition-colors group
+        w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-left
+        transition-all group cursor-pointer border
         ${isActive
-                    ? 'bg-dark-700 text-dark-100'
-                    : 'text-dark-300 hover:bg-dark-800 hover:text-dark-100'
+                    ? 'bg-accent-primary/20 border-accent-primary/30 text-white shadow-lg shadow-accent-primary/10'
+                    : 'text-dark-300 hover:bg-dark-800 hover:text-dark-200 border-transparent'
                 }
       `}
         >
@@ -208,14 +210,18 @@ function ConversationItem({
                         initial={{ opacity: 0, scale: 0.8 }}
                         animate={{ opacity: 1, scale: 1 }}
                         exit={{ opacity: 0, scale: 0.8 }}
-                        onClick={onDelete}
+                        onClick={(e) => {
+                            e.stopPropagation();
+                            onDelete(e);
+                        }}
                         className="p-1 text-dark-500 hover:text-red-400 rounded transition-colors"
+                        title="Delete conversation"
                     >
                         <Trash2 size={14} />
                     </motion.button>
                 )}
             </AnimatePresence>
-        </motion.button>
+        </motion.div>
     );
 }
 

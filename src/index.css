@@ -1,50 +1,97 @@
 /* All @imports must come first */
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap');
 @import 'katex/dist/katex.min.css';
 @import 'highlight.js/styles/github-dark.css';
 @import "tailwindcss";
 
 /* Custom colors using CSS custom properties for Tailwind v4 */
 @theme {
-  --color-dark-50: #f7f7f8;
-  --color-dark-100: #ececf1;
-  --color-dark-200: #d9d9e3;
-  --color-dark-300: #c5c5d2;
-  --color-dark-400: #acacbe;
-  --color-dark-500: #8e8ea0;
-  --color-dark-600: #565869;
-  --color-dark-700: #40414f;
-  --color-dark-800: #343541;
-  --color-dark-900: #202123;
-  --color-dark-950: #0d0d0f;
+  --color-dark-950: #0a0a0c;
+  --color-dark-850: #1a1a1e;
+  --color-dark-800: #232328;
+  --color-dark-700: #2d2d35;
+  --color-dark-600: #3d3d47;
+  --color-dark-500: #6b7280;
+  --color-dark-400: #9ca3af;
+  --color-dark-300: #d1d5db;
+  --color-dark-200: #e5e7eb;
+  --color-dark-100: #f3f4f6;
 
-  --color-accent-primary: #10a37f;
-  --color-accent-secondary: #1a7f64;
-  --color-accent-hover: #0d8a6a;
+  --color-accent-primary: #7B52C1;
+  --color-accent-hover: #6640A0;
+  --color-accent-glow: rgba(123, 82, 193, 0.4);
 
-  --font-sans: 'Inter', system-ui, -apple-system, sans-serif;
+  --color-brand-light: #B2C9FF;
+  --color-brand-soft: #C9DCFF;
+  --color-brand-pale: #F2F7FF;
+
+  --font-sans: 'Outfit', system-ui, -apple-system, sans-serif;
   --font-mono: 'JetBrains Mono', 'Fira Code', monospace;
+}
+
+:root {
+  color-scheme: dark;
+
+  /* Dark theme variables (default) */
+  --bg-app: var(--color-dark-950);
+  --bg-sidebar: var(--color-dark-900);
+  --bg-secondary: var(--color-dark-800);
+  --bg-tertiary: var(--color-dark-700);
+  --text-primary: var(--color-dark-100);
+  --text-secondary: var(--color-dark-300);
+  --text-muted: var(--color-dark-500);
+  --border-color: var(--color-dark-700);
+  --glass-bg: rgba(35, 35, 40, 0.8);
+}
+
+.light {
+  color-scheme: light;
+
+  --bg-app: #f8faff;
+  --bg-sidebar: #ffffff;
+  --bg-secondary: #f1f5f9;
+  --bg-tertiary: #e2e8f0;
+  --text-primary: #1e293b;
+  --text-secondary: #475569;
+  --text-muted: #94a3b8;
+  --border-color: #e2e8f0;
+  --glass-bg: rgba(255, 255, 255, 0.8);
+
+  /* Override dark tokens for light mode */
+  --color-dark-900: #ffffff;
+  --color-dark-800: #f1f5f9;
+  --color-dark-700: #e2e8f0;
+  --color-dark-600: #cbd5e1;
+  --color-dark-500: #94a3b8;
+  --color-dark-300: #475569;
+  --color-dark-100: #1e293b;
 }
 
 /* Base styles */
 @layer base {
   * {
     border-color: var(--color-dark-700);
+    @apply transition-colors duration-200;
   }
 
   body {
-    background-color: var(--color-dark-900);
-    color: var(--color-dark-100);
+    background-color: var(--bg-app);
+    color: var(--text-primary);
+    @apply antialiased transition-colors duration-300;
+    background-image:
+      radial-gradient(circle at 0% 0%, rgba(139, 92, 246, 0.03) 0%, transparent 50%),
+      radial-gradient(circle at 100% 100%, rgba(59, 130, 246, 0.03) 0%, transparent 50%);
     font-family: var(--font-sans);
   }
 
-  /* Custom scrollbar */
+  /* Custom Scrollbar */
   ::-webkit-scrollbar {
-    width: 0.5rem;
+    width: 6px;
+    height: 6px;
   }
 
   ::-webkit-scrollbar-track {
-    background-color: var(--color-dark-900);
+    background: transparent;
   }
 
   ::-webkit-scrollbar-thumb {
@@ -68,20 +115,20 @@
 
   /* Glass effect for cards and panels */
   .glass {
-    background-color: color-mix(in srgb, var(--color-dark-800) 80%, transparent);
+    background-color: var(--glass-bg);
     backdrop-filter: blur(24px);
-    border: 1px solid color-mix(in srgb, var(--color-dark-700) 50%, transparent);
+    border: 1px solid var(--border-color);
   }
 
   .glass-hover {
-    background-color: color-mix(in srgb, var(--color-dark-800) 80%, transparent);
+    background-color: var(--glass-bg);
     backdrop-filter: blur(24px);
-    border: 1px solid color-mix(in srgb, var(--color-dark-700) 50%, transparent);
-    transition: background-color 200ms;
+    border: 1px solid var(--border-color);
+    transition: all 200ms;
   }
 
   .glass-hover:hover {
-    background-color: color-mix(in srgb, var(--color-dark-700) 80%, transparent);
+    background-color: color-mix(in srgb, var(--glass-bg) 90%, var(--color-accent-primary));
   }
 
   /* Primary button */
@@ -367,13 +414,13 @@
 }
 
 .markdown-content a {
-  color: #60a5fa;
+  color: var(--color-brand-light);
   text-decoration: underline;
   text-underline-offset: 2px;
 }
 
 .markdown-content a:hover {
-  color: #93c5fd;
+  color: var(--color-brand-soft);
 }
 
 .markdown-content table {
@@ -439,4 +486,59 @@
     transform: scale(1);
     opacity: 1;
   }
+}
+
+@keyframes float {
+  0% {
+    transform: translateY(0px) rotate(0deg);
+  }
+
+  50% {
+    transform: translateY(-10px) rotate(2deg);
+  }
+
+  100% {
+    transform: translateY(0px) rotate(0deg);
+  }
+}
+
+.animate-float {
+  animation: float 6s ease-in-out infinite;
+}
+
+@keyframes pulse-glow {
+
+  0%,
+  100% {
+    opacity: 0.5;
+    filter: blur(40px);
+  }
+
+  50% {
+    opacity: 0.8;
+    filter: blur(60px);
+  }
+}
+
+.animate-pulse-glow {
+  animation: pulse-glow 4s ease-in-out infinite;
+}
+
+.glow-card {
+  position: relative;
+  overflow: hidden;
+}
+
+.glow-card::after {
+  content: '';
+  position: absolute;
+  inset: -1px;
+  background: linear-gradient(45deg, var(--color-accent-primary), transparent, var(--color-brand-light));
+  opacity: 0.2;
+  z-index: -1;
+  transition: opacity 0.3s;
+}
+
+.glow-card:hover::after {
+  opacity: 0.4;
 }

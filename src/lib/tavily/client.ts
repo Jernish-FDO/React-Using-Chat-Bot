@@ -26,6 +26,8 @@ export interface TavilySearchOptions {
     excludeDomains?: string[];
 }
 
+import { useApiKeyStore } from '@/stores/apiKeyStore';
+
 /**
  * Search the web using Tavily API
  */
@@ -33,10 +35,12 @@ export async function searchWeb(
     query: string,
     options: TavilySearchOptions = {}
 ): Promise<TavilyResponse> {
-    const apiKey = import.meta.env.VITE_TAVILY_API_KEY;
+    const userApiKey = useApiKeyStore.getState().keys.tavily;
+    const envApiKey = import.meta.env.VITE_TAVILY_API_KEY;
+    const apiKey = userApiKey || envApiKey;
 
     if (!apiKey) {
-        throw new Error('Tavily API key not configured. Please add VITE_TAVILY_API_KEY to your .env.local file.');
+        throw new Error('Tavily API key not configured. Please add it in Settings.');
     }
 
     const {

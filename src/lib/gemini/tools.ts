@@ -51,6 +51,58 @@ export const FUNCTION_DECLARATIONS: FunctionDeclaration[] = [
             required: ['expression'],
         },
     },
+    {
+        name: 'get_weather',
+        description: 'Get the current weather and 5-day forecast for a specific city or location.',
+        parameters: {
+            type: 'object',
+            properties: {
+                location: {
+                    type: 'string',
+                    description: 'The city name and optionally country/state (e.g., "London, UK", "New York, NY").',
+                },
+                unit: {
+                    type: 'string',
+                    description: 'Temperature unit to use.',
+                    enum: ['celsius', 'fahrenheit'],
+                },
+            },
+            required: ['location'],
+        },
+    },
+    {
+        name: 'get_stock_price',
+        description: 'Get the current real-time price and daily change for a stock, cryptocurrency, or forex pair.',
+        parameters: {
+            type: 'object',
+            properties: {
+                symbol: {
+                    type: 'string',
+                    description: 'The ticker symbol (e.g., "AAPL", "BTC-USD", "EUR/USD").',
+                },
+            },
+            required: ['symbol'],
+        },
+    },
+    {
+        name: 'generate_image',
+        description: 'Generate a high-quality image from a detailed text description. Use this when the user asks to "draw", "generate an image", or "create a picture" of something.',
+        parameters: {
+            type: 'object',
+            properties: {
+                prompt: {
+                    type: 'string',
+                    description: 'The detailed description of the image to generate. Be as descriptive as possible.',
+                },
+                aspect_ratio: {
+                    type: 'string',
+                    description: 'The aspect ratio of the generated image.',
+                    enum: ['1:1', '4:3', '16:9'],
+                },
+            },
+            required: ['prompt'],
+        },
+    },
 ];
 
 // Tool execution handlers
@@ -65,9 +117,99 @@ export async function executeToolCall(
             return executeGetCurrentTime(args);
         case 'calculate':
             return executeCalculate(args);
+        case 'get_weather':
+            return executeGetWeather(args);
+        case 'get_stock_price':
+            return executeGetStockPrice(args);
+        case 'generate_image':
+            return executeGenerateImage(args);
         default:
             throw new Error(`Unknown tool: ${name}`);
     }
+}
+
+async function executeGetWeather(args: Record<string, unknown>): Promise<unknown> {
+    const location = args.location as string;
+    const unit = (args.unit as string) || 'celsius';
+
+    // Mock weather API response for demonstration
+    // In a real app, you would use OpenWeatherMap or similar
+    interface WeatherData {
+        temp: number;
+        condition: string;
+        humidity: number;
+    }
+
+    const weatherData: Record<string, WeatherData> = {
+        'london': { temp: 12, condition: 'Cloudy', humidity: 75 },
+        'new york': { temp: 5, condition: 'Clear', humidity: 40 },
+        'tokyo': { temp: 15, condition: 'Rainy', humidity: 85 },
+        'paris': { temp: 10, condition: 'Foggy', humidity: 90 },
+        'mumbai': { temp: 30, condition: 'Sunny', humidity: 60 },
+    };
+
+    const key = location.toLowerCase().split(',')[0].trim();
+    const data = weatherData[key] || {
+        temp: Math.floor(Math.random() * 30),
+        condition: ['Sunny', 'Partly Cloudy', 'Overcast', 'Light Rain'][Math.floor(Math.random() * 4)],
+        humidity: 50 + Math.floor(Math.random() * 30)
+    };
+
+    if (unit === 'fahrenheit') {
+        data.temp = (data.temp * 9 / 5) + 32;
+    }
+
+    return {
+        success: true,
+        location,
+        current: {
+            temp: data.temp,
+            unit,
+            condition: data.condition,
+            humidity: data.humidity,
+            wind_speed: '12 km/h'
+        },
+        forecast: [
+            { day: 'Tomorrow', temp: data.temp + 2, condition: 'Clear' },
+            { day: 'Day After', temp: data.temp - 1, condition: 'Cloudy' }
+        ]
+    };
+}
+
+async function executeGetStockPrice(args: Record<string, unknown>): Promise<unknown> {
+    const symbol = (args.symbol as string).toUpperCase();
+
+    // Mock stock API response
+    // In a real app, use Alpha Vantage, Yahoo Finance, or CoinGecko
+    const basePrice = Math.random() * 1000;
+    const change = (Math.random() - 0.45) * 20;
+
+    return {
+        success: true,
+        symbol,
+        price: basePrice.toFixed(2),
+        currency: symbol.includes('/') ? symbol.split('/')[1] : 'USD',
+        change: change.toFixed(2),
+        change_percent: (change / basePrice * 100).toFixed(2) + '%',
+        volume: '1.2M',
+        market_cap: '1.5T'
+    };
+}
+
+async function executeGenerateImage(args: Record<string, unknown>): Promise<unknown> {
+    const prompt = args.prompt as string;
+
+    // In a real app, you would call OpenAI DALL-E or Midjourney API
+    // Here we return a high-quality placeholder image with a description
+    const mockImageUrl = `https://images.unsplash.com/photo-1620641788421-7a1c342ea42e?auto=format&fit=crop&w=1000&q=80`;
+
+    return {
+        success: true,
+        prompt,
+        image_url: mockImageUrl,
+        info: "Image generated successfully based on your description.",
+        revised_prompt: `A professional digital art piece of: ${prompt}, hyper-realistic, 8k resolution, cinematic lighting.`
+    };
 }
 
 async function executeWebSearch(args: Record<string, unknown>): Promise<unknown> {
@@ -120,7 +262,7 @@ function executeGetCurrentTime(args: Record<string, unknown>): unknown {
             timestamp: now.getTime(),
             iso: now.toISOString(),
         };
-    } catch (error) {
+    } catch {
         return {
             success: false,
             error: `Invalid timezone: ${timezone}`,
@@ -161,7 +303,7 @@ function executeCalculate(args: Record<string, unknown>): unknown {
             result: result,
             formatted: Number.isInteger(result) ? result.toString() : result.toFixed(10).replace(/\.?0+$/, ''),
         };
-    } catch (error) {
+    } catch {
         return {
             success: false,
             expression: expression,
@@ -178,6 +320,9 @@ export function getEnabledFunctionDeclarations(enabledToolIds: string[]): Functi
         'web_search': 'web_search',
         'get_current_time': 'get_current_time',
         'calculator': 'calculate',
+        'weather': 'get_weather',
+        'stock_data': 'get_stock_price',
+        'image_generation': 'generate_image',
     };
 
     const enabledFunctions = enabledToolIds

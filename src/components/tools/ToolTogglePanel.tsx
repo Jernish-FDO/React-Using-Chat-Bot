@@ -7,6 +7,9 @@ import {
     Microscope,
     ChevronDown,
     AlertCircle,
+    Cloud,
+    TrendingUp,
+    Image,
     type LucideIcon
 } from 'lucide-react';
 import { useState } from 'react';
@@ -19,6 +22,9 @@ const iconMap: Record<string, LucideIcon> = {
     clock: Clock,
     calculator: Calculator,
     microscope: Microscope,
+    cloud: Cloud,
+    'trending-up': TrendingUp,
+    image: Image,
 };
 
 interface ToolTogglePanelProps {
@@ -73,21 +79,21 @@ export function ToolTogglePanel({ compact = false }: ToolTogglePanelProps) {
     }
 
     return (
-        <div className="p-4 bg-dark-800/50 border border-dark-700 rounded-xl">
+        <div className="p-4 bg-dark-800/30 border border-dark-700 rounded-2xl glass shadow-xl shadow-black/20">
             {/* Header */}
-            <div className="flex items-center justify-between mb-4">
-                <h3 className="text-sm font-semibold text-dark-100">Tools</h3>
+            <div className="flex items-center justify-between mb-5">
+                <h3 className="text-base font-bold text-white tracking-tight">Capabilities</h3>
                 <div className="flex items-center gap-2">
                     <button
                         onClick={enableAll}
-                        className="text-xs text-dark-400 hover:text-accent-primary transition-colors"
+                        className="text-xs font-semibold text-dark-400 hover:text-accent-primary transition-colors"
                     >
                         Enable All
                     </button>
-                    <span className="text-dark-600">|</span>
+                    <span className="text-dark-700 select-none">|</span>
                     <button
                         onClick={disableAll}
-                        className="text-xs text-dark-400 hover:text-red-400 transition-colors"
+                        className="text-xs font-semibold text-dark-400 hover:text-red-400 transition-colors"
                     >
                         Disable All
                     </button>
@@ -95,14 +101,14 @@ export function ToolTogglePanel({ compact = false }: ToolTogglePanelProps) {
             </div>
 
             {/* Tool groups */}
-            <div className="space-y-4">
+            <div className="space-y-5">
                 {Object.entries(groupedTools).map(([category, categoryTools]) => (
                     categoryTools.length > 0 && (
                         <div key={category}>
-                            <h4 className="text-xs font-medium text-dark-500 uppercase tracking-wider mb-2">
+                            <h4 className="text-[10px] font-bold text-dark-500 uppercase tracking-widest mb-3 px-1">
                                 {category}
                             </h4>
-                            <div className="space-y-2">
+                            <div className="space-y-2.5">
                                 {categoryTools.map((tool) => (
                                     <ToolItem
                                         key={tool.id}
@@ -128,7 +134,7 @@ interface ToolListProps {
 
 function ToolList({ tools, enabledToolIds, onToggle }: ToolListProps) {
     return (
-        <div className="space-y-2">
+        <div className="space-y-2.5">
             {tools.map((tool) => (
                 <ToolItem
                     key={tool.id}
@@ -154,17 +160,23 @@ function ToolItem({ tool, isEnabled, onToggle }: ToolItemProps) {
     return (
         <div
             className={`
-        flex items-center gap-3 p-2 rounded-lg transition-colors
-        ${isEnabled ? 'bg-dark-700/50' : 'hover:bg-dark-700/30'}
+        flex items-center gap-3 p-2.5 rounded-xl transition-all border
+        ${isEnabled
+                    ? 'bg-accent-primary/5 border-accent-primary/20'
+                    : 'hover:bg-dark-700/50 border-transparent'
+                }
       `}
         >
             <div
                 className={`
-          flex-shrink-0 w-8 h-8 rounded-lg flex items-center justify-center
-          ${isEnabled ? 'bg-accent-primary/20 text-accent-primary' : 'bg-dark-700 text-dark-400'}
+          flex-shrink-0 w-9 h-9 rounded-xl flex items-center justify-center transition-colors
+          ${isEnabled
+                        ? 'bg-accent-primary text-white shadow-lg shadow-accent-primary/20'
+                        : 'bg-dark-700 text-dark-500'
+                    }
         `}
             >
-                <Icon size={16} />
+                <Icon size={18} />
             </div>
 
             <div className="flex-1 min-w-0">
