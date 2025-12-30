@@ -39,21 +39,24 @@ export function ChatContainer() {
     }, [messages.length, isGenerating]);
 
     const handleSendMessage = useCallback(async (content: string) => {
-        if (!content.trim()) return;
+        const text = content.trim();
+        if (!text) return;
 
-        // Create conversation if needed
-        let convId = activeConversationId;
+        // Ensure we have a conversation first
+        let convId = useChatStore.getState().activeConversationId;
         if (!convId) {
             convId = createConversation();
         }
 
-        console.log('Sending message to', provider, 'model:', modelId);
+        // Get history BEFORE adding the new message
+        const currentConversation = useChatStore.getState().conversations.find(c => c.id === convId);
+        const history = currentConversation?.messages.map(m => ({
+            role: m.role as 'user' | 'assistant',
+            content: m.content
+        })) || [];
 
-        // Add user message
-        addMessage(convId, {
-            role: 'user',
-            content,
-        });
+        // Add user message to UI immediately
+        addMessage(convId, { role: 'user', content: text });
 
         setGenerating(true);
         setError(null);
@@ -61,62 +64,80 @@ export function ChatContainer() {
         try {
             let result;
             const startTime = Date.now();
+            let fullAssistantText = '';
+
+            // Create placeholder assistant message for streaming
+            const assistantMessage = addMessage(convId, {
+                role: 'assistant',
+                content: '',
+                metadata: { isStreaming: true }
+            });
+
+            const onToken = (token: string) => {
+                fullAssistantText += token;
+                useChatStore.getState().updateMessage(convId, assistantMessage.id, {
+                    content: fullAssistantText
+                });
+            };
 
             if (provider === 'gemini') {
+                const geminiHistory = history.map(m => ({
+                    role: m.role === 'assistant' ? 'model' : 'user',
+                    parts: [{ text: m.content }]
+                }));
+
                 const chat = createChat({
                     model: modelId as any,
                     enabledToolIds,
-                });
+                }, geminiHistory as any);
 
-                result = await sendGeminiMessage(chat, content, async (toolName, args) => {
-                    useToolStore.getState().setExecuting(true, { name: toolName, args });
-                });
+                result = await sendGeminiMessage(
+                    chat,
+                    text,
+                    onToken,
+                    async (toolName, args) => {
+                        useToolStore.getState().setExecuting(true, { name: toolName, args });
+                    }
+                );
             } else {
-                // Groq path
-                const messages_history = messages.map(m => ({
-                    role: m.role as 'user' | 'assistant',
-                    content: m.content
-                }));
-                // Combine history with CURRENT message (which was just added to state, so it might be in messages already)
-                // To be safe and avoid duplicates, we use the content passed to handleSendMessage
-                const messages_context = [...messages_history, { role: 'user' as const, content }];
-
-                const groqResult = await sendGroqMessage(messages_context, modelId);
-                result = {
-                    text: groqResult.text,
-                    toolCalls: [],
-                    finishReason: groqResult.finishReason
-                };
+                result = await sendGroqMessage(
+                    [...history, { role: 'user', content: text }],
+                    modelId,
+                    enabledToolIds,
+                    onToken,
+                    async (toolName, args) => {
+                        useToolStore.getState().setExecuting(true, { name: toolName, args });
+                    }
+                );
             }
 
             const thinkingTime = Date.now() - startTime;
 
-            // Add assistant response
-            addMessage(convId, {
-                role: 'assistant',
-                content: result.text || 'I received an empty response from the AI.',
+            // Final update to the assistant message with full result and metadata
+            useChatStore.getState().updateMessage(convId, assistantMessage.id, {
+                content: result.text || fullAssistantText || 'I received an empty response from the AI.',
                 metadata: {
                     thinkingTime,
-                    toolName: result.toolCalls?.[0]?.name,
-                    toolResults: result.toolCalls,
+                    toolName: result.toolCalls?.[0]?.name ?? null,
+                    toolResults: result.toolCalls ?? null,
+                    isStreaming: false
                 },
             });
-        } catch (err: unknown) {
+        } catch (err: any) {
             console.error('Chat Error:', err);
-            const errorMessage = err instanceof Error ? err.message : 'An error occurred';
+            const errorMessage = err.message || 'An error occurred';
             setError(errorMessage);
 
-            // Add error message to chat
             addMessage(convId, {
                 role: 'assistant',
-                content: `Error: ${errorMessage}. Please check your API keys and internet connection.`,
+                content: `Error: ${errorMessage}. Please check your API keys and connection.`,
                 metadata: { error: errorMessage },
             });
         } finally {
             setGenerating(false);
             useToolStore.getState().setExecuting(false);
         }
-    }, [activeConversationId, provider, modelId, enabledToolIds, messages.length, addMessage, createConversation, setError, setGenerating]);
+    }, [provider, modelId, enabledToolIds, addMessage, createConversation, setError, setGenerating]);
 
     return (
         <div className="flex flex-col h-full bg-bg-app">

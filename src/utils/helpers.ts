@@ -121,3 +121,36 @@ export function isValidUrl(string: string): boolean {
         return false;
     }
 }
+/**
+ * Deeply remove undefined values and serialize Dates for Firestore
+ */
+export function sanitizeForFirestore<T>(obj: T): T {
+    if (obj === null || obj === undefined) {
+        return obj;
+    }
+
+    if (obj instanceof Date) {
+        return obj.toISOString() as unknown as T;
+    }
+
+    if (Array.isArray(obj)) {
+        return obj.map(item => sanitizeForFirestore(item)) as unknown as T;
+    }
+
+    if (typeof obj === 'object') {
+        const result: any = {};
+        let hasKeys = false;
+        for (const key in obj) {
+            if (Object.prototype.hasOwnProperty.call(obj, key)) {
+                const value = (obj as any)[key];
+                if (value !== undefined) {
+                    result[key] = sanitizeForFirestore(value);
+                    hasKeys = true;
+                }
+            }
+        }
+        return result as T;
+    }
+
+    return obj;
+}

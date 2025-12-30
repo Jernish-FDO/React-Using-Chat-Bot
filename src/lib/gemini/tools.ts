@@ -128,52 +128,75 @@ export async function executeToolCall(
     }
 }
 
+import { useApiKeyStore } from '@/stores/apiKeyStore';
+
 async function executeGetWeather(args: Record<string, unknown>): Promise<unknown> {
     const location = args.location as string;
     const unit = (args.unit as string) || 'celsius';
 
-    // Mock weather API response for demonstration
-    // In a real app, you would use OpenWeatherMap or similar
-    interface WeatherData {
-        temp: number;
-        condition: string;
-        humidity: number;
+    const apiKey = useApiKeyStore.getState().keys.weather || import.meta.env.VITE_OPENWEATHER_API_KEY;
+
+    if (!apiKey) {
+        return {
+            success: false,
+            error: 'Weather API key not configured. Please add an OpenWeatherMap API key in Settings.',
+        };
     }
 
-    const weatherData: Record<string, WeatherData> = {
-        'london': { temp: 12, condition: 'Cloudy', humidity: 75 },
-        'new york': { temp: 5, condition: 'Clear', humidity: 40 },
-        'tokyo': { temp: 15, condition: 'Rainy', humidity: 85 },
-        'paris': { temp: 10, condition: 'Foggy', humidity: 90 },
-        'mumbai': { temp: 30, condition: 'Sunny', humidity: 60 },
-    };
+    try {
+        // First, get coordinates
+        const geoResponse = await fetch(
+            `https://api.openweathermap.org/geo/1.0/direct?q=${encodeURIComponent(location)}&limit=1&appid=${apiKey}`
+        );
+        const geoData = await geoResponse.json();
 
-    const key = location.toLowerCase().split(',')[0].trim();
-    const data = weatherData[key] || {
-        temp: Math.floor(Math.random() * 30),
-        condition: ['Sunny', 'Partly Cloudy', 'Overcast', 'Light Rain'][Math.floor(Math.random() * 4)],
-        humidity: 50 + Math.floor(Math.random() * 30)
-    };
+        if (!geoData || geoData.length === 0) {
+            throw new Error(`Location not found: ${location}`);
+        }
 
-    if (unit === 'fahrenheit') {
-        data.temp = (data.temp * 9 / 5) + 32;
+        const { lat, lon, name, state, country } = geoData[0];
+        const units = unit === 'fahrenheit' ? 'imperial' : 'metric';
+
+        // Then, get current weather
+        const weatherResponse = await fetch(
+            `https://api.openweathermap.org/data/2.5/weather?lat=${lat}&lon=${lon}&units=${units}&appid=${apiKey}`
+        );
+        const data = await weatherResponse.json();
+
+        if (data.cod !== 200) {
+            throw new Error(data.message || 'Failed to fetch weather data');
+        }
+
+        // Get forecast
+        const forecastResponse = await fetch(
+            `https://api.openweathermap.org/data/2.5/forecast?lat=${lat}&lon=${lon}&units=${units}&cnt=16&appid=${apiKey}`
+        );
+        const forecastData = await forecastResponse.json();
+
+        return {
+            success: true,
+            location: `${name}${state ? `, ${state}` : ''}, ${country}`,
+            current: {
+                temp: data.main.temp,
+                unit: unit === 'fahrenheit' ? '°F' : '°C',
+                condition: data.weather[0].main,
+                description: data.weather[0].description,
+                humidity: data.main.humidity,
+                wind_speed: `${data.wind.speed} ${unit === 'fahrenheit' ? 'mph' : 'm/s'}`,
+                feels_like: data.main.feels_like,
+            },
+            forecast: forecastData.list?.filter((_: any, i: number) => i % 8 === 0).map((f: any) => ({
+                date: new Date(f.dt * 1000).toLocaleDateString(),
+                temp: f.main.temp,
+                condition: f.weather[0].main,
+            })) || []
+        };
+    } catch (error: any) {
+        return {
+            success: false,
+            error: error.message || 'Failed to fetch weather information',
+        };
     }
-
-    return {
-        success: true,
-        location,
-        current: {
-            temp: data.temp,
-            unit,
-            condition: data.condition,
-            humidity: data.humidity,
-            wind_speed: '12 km/h'
-        },
-        forecast: [
-            { day: 'Tomorrow', temp: data.temp + 2, condition: 'Clear' },
-            { day: 'Day After', temp: data.temp - 1, condition: 'Cloudy' }
-        ]
-    };
 }
 
 async function executeGetStockPrice(args: Record<string, unknown>): Promise<unknown> {

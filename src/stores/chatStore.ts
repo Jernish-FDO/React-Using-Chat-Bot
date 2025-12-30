@@ -8,12 +8,12 @@ import {
     orderBy
 } from 'firebase/firestore';
 import { create } from 'zustand';
-import { persist } from 'zustand/middleware';
+import { persist, createJSONStorage } from 'zustand/middleware';
 import { immer } from 'zustand/middleware/immer';
 import { db } from '@/lib/firebase/config';
 import { useAuthStore } from './authStore';
 import type { Conversation, Message } from '../types/chat';
-import { generateId } from '../utils/helpers';
+import { generateId, sanitizeForFirestore } from '../utils/helpers';
 
 interface ChatState {
     // State
@@ -39,21 +39,40 @@ interface ChatState {
     clearError: () => void;
     fetchConversations: () => Promise<void>;
 
-    // Getters (computed)
+    // Getters
     getActiveConversation: () => Conversation | undefined;
-    getConversation: (id: string) => Conversation | undefined;
 }
 
-// Helper to sync a single conversation to Firestore
-const syncConversationToFirestore = async (userId: string, conversation: Conversation) => {
+// Utility to convert dates safely for Firestore/JSON/LocalStorage
+const serializeDate = (date: any): string => {
     try {
-        const docRef = doc(db, `users/${userId}/conversations`, conversation.id);
-        await setDoc(docRef, {
-            ...conversation,
-            updatedAt: new Date(),
-        });
-    } catch (error) {
-        console.error('Error syncing to Firestore:', error);
+        if (!date) return new Date().toISOString();
+        const d = date instanceof Date ? date : new Date(date);
+        if (isNaN(d.getTime())) {
+            console.warn('Invalid date detected during serialization:', date);
+            return new Date().toISOString();
+        }
+        return d.toISOString();
+    } catch (err) {
+        console.error('Serialization error:', err);
+        return new Date().toISOString();
+    }
+};
+
+const parseDate = (date: any): Date => {
+    try {
+        if (!date) return new Date();
+        // Handle Firestore Timestamp
+        if (typeof date.toDate === 'function') return date.toDate();
+
+        // Handle empty object {} case which causes RangeError in new Date()
+        if (typeof date === 'object' && Object.keys(date).length === 0) return new Date();
+
+        const d = new Date(date);
+        if (isNaN(d.getTime())) return new Date();
+        return d;
+    } catch (err) {
+        return new Date();
     }
 };
 
@@ -69,12 +88,14 @@ export const useChatStore = create<ChatState>()(
             createConversation: (title) => {
                 const id = generateId();
                 const { user } = useAuthStore.getState();
+                const now = new Date();
+
                 const newConversation: Conversation = {
                     id,
                     userId: user?.uid || '',
                     title: title || 'New Chat',
-                    createdAt: new Date(),
-                    updatedAt: new Date(),
+                    createdAt: now,
+                    updatedAt: now,
                     messageCount: 0,
                     toolsUsed: [],
                     isDeepResearch: false,
@@ -87,7 +108,13 @@ export const useChatStore = create<ChatState>()(
                 });
 
                 if (user) {
-                    syncConversationToFirestore(user.uid, newConversation);
+                    const { userId, ...rest } = newConversation;
+                    setDoc(doc(db, `users/${user.uid}/conversations`, id), sanitizeForFirestore({
+                        ...rest,
+                        userId: user.uid,
+                        createdAt: now,
+                        updatedAt: now,
+                    })).catch(console.error);
                 }
 
                 return id;
@@ -97,17 +124,14 @@ export const useChatStore = create<ChatState>()(
                 const { user } = useAuthStore.getState();
                 set((state) => {
                     const index = state.conversations.findIndex(c => c.id === id);
-                    if (index !== -1) {
-                        state.conversations.splice(index, 1);
-                    }
+                    if (index !== -1) state.conversations.splice(index, 1);
                     if (state.activeConversationId === id) {
                         state.activeConversationId = state.conversations[0]?.id ?? null;
                     }
                 });
 
                 if (user) {
-                    deleteDoc(doc(db, `users/${user.uid}/conversations`, id))
-                        .catch(err => console.error('Error deleting from Firestore:', err));
+                    deleteDoc(doc(db, `users/${user.uid}/conversations`, id)).catch(console.error);
                 }
             },
 
@@ -120,17 +144,18 @@ export const useChatStore = create<ChatState>()(
 
             updateConversationTitle: (id, title) => {
                 const { user } = useAuthStore.getState();
+                const now = new Date();
+
                 set((state) => {
-                    const conversation = state.conversations.find(c => c.id === id);
-                    if (conversation) {
-                        conversation.title = title;
-                        conversation.updatedAt = new Date();
+                    const conv = state.conversations.find(c => c.id === id);
+                    if (conv) {
+                        conv.title = title;
+                        conv.updatedAt = now;
                     }
                 });
 
-                const conversation = get().conversations.find(c => c.id === id);
-                if (user && conversation) {
-                    syncConversationToFirestore(user.uid, conversation);
+                if (user) {
+                    setDoc(doc(db, `users/${user.uid}/conversations`, id), sanitizeForFirestore({ title, updatedAt: now }), { merge: true }).catch(console.error);
                 }
             },
 
@@ -142,10 +167,11 @@ export const useChatStore = create<ChatState>()(
 
             addMessage: (conversationId, messageData) => {
                 const { user } = useAuthStore.getState();
+                const now = new Date();
                 const message: Message = {
                     ...messageData,
                     id: generateId(),
-                    timestamp: new Date(),
+                    timestamp: now,
                 };
 
                 set((state) => {
@@ -153,17 +179,13 @@ export const useChatStore = create<ChatState>()(
                     if (conversation) {
                         conversation.messages.push(message);
                         conversation.messageCount = conversation.messages.length;
-                        conversation.updatedAt = new Date();
+                        conversation.updatedAt = now;
 
-                        // Auto-generate title from first user message
                         if (conversation.messages.length === 1 && message.role === 'user') {
                             const words = message.content.split(' ').slice(0, 6).join(' ');
-                            conversation.title = words.length < message.content.length
-                                ? words + '...'
-                                : words;
+                            conversation.title = words.length < message.content.length ? words + '...' : words;
                         }
 
-                        // Track tool usage
                         if (message.metadata?.toolName && !conversation.toolsUsed.includes(message.metadata.toolName)) {
                             conversation.toolsUsed.push(message.metadata.toolName);
                         }
@@ -172,7 +194,10 @@ export const useChatStore = create<ChatState>()(
 
                 const conversation = get().conversations.find(c => c.id === conversationId);
                 if (user && conversation) {
-                    syncConversationToFirestore(user.uid, conversation);
+                    setDoc(doc(db, `users/${user.uid}/conversations`, conversationId), sanitizeForFirestore({
+                        ...conversation,
+                        updatedAt: now
+                    })).catch(console.error);
                 }
 
                 return message;
@@ -181,58 +206,38 @@ export const useChatStore = create<ChatState>()(
             updateMessage: (conversationId, messageId, updates) => {
                 const { user } = useAuthStore.getState();
                 set((state) => {
-                    const conversation = state.conversations.find(c => c.id === conversationId);
-                    if (conversation) {
-                        const message = conversation.messages.find(m => m.id === messageId);
-                        if (message) {
-                            Object.assign(message, updates);
-                        }
+                    const conv = state.conversations.find(c => c.id === conversationId);
+                    if (conv) {
+                        const msg = conv.messages.find(m => m.id === messageId);
+                        if (msg) Object.assign(msg, updates);
                     }
                 });
 
                 const conversation = get().conversations.find(c => c.id === conversationId);
                 if (user && conversation) {
-                    syncConversationToFirestore(user.uid, conversation);
+                    setDoc(doc(db, `users/${user.uid}/conversations`, conversationId), sanitizeForFirestore(conversation)).catch(console.error);
                 }
             },
 
             deleteMessage: (conversationId, messageId) => {
                 const { user } = useAuthStore.getState();
                 set((state) => {
-                    const conversation = state.conversations.find(c => c.id === conversationId);
-                    if (conversation) {
-                        const index = conversation.messages.findIndex(m => m.id === messageId);
-                        if (index !== -1) {
-                            conversation.messages.splice(index, 1);
-                            conversation.messageCount = conversation.messages.length;
-                        }
+                    const conv = state.conversations.find(c => c.id === conversationId);
+                    if (conv) {
+                        conv.messages = conv.messages.filter(m => m.id !== messageId);
+                        conv.messageCount = conv.messages.length;
                     }
                 });
 
                 const conversation = get().conversations.find(c => c.id === conversationId);
                 if (user && conversation) {
-                    syncConversationToFirestore(user.uid, conversation);
+                    setDoc(doc(db, `users/${user.uid}/conversations`, conversationId), sanitizeForFirestore(conversation)).catch(console.error);
                 }
             },
 
-            setGenerating: (generating) => {
-                set((state) => {
-                    state.isGenerating = generating;
-                });
-            },
-
-            setError: (error) => {
-                set((state) => {
-                    state.error = error;
-                    state.isGenerating = false;
-                });
-            },
-
-            clearError: () => {
-                set((state) => {
-                    state.error = null;
-                });
-            },
+            setGenerating: (generating) => set({ isGenerating: generating }),
+            setError: (error) => set({ error, isGenerating: false }),
+            clearError: () => set({ error: null }),
 
             fetchConversations: async () => {
                 const { user } = useAuthStore.getState();
@@ -246,25 +251,24 @@ export const useChatStore = create<ChatState>()(
                     );
                     const querySnapshot = await getDocs(q);
                     const conversations: Conversation[] = [];
+
                     querySnapshot.forEach((doc) => {
                         const data = doc.data();
                         conversations.push({
                             ...data,
-                            createdAt: data.createdAt.toDate ? data.createdAt.toDate() : new Date(data.createdAt),
-                            updatedAt: data.updatedAt.toDate ? data.updatedAt.toDate() : new Date(data.updatedAt),
-                            messages: (data.messages || []).map((m: Message) => {
-                                const timestamp = m.timestamp as unknown as { toDate?: () => Date };
-                                return {
-                                    ...m,
-                                    timestamp: timestamp.toDate ? timestamp.toDate() : new Date(m.timestamp),
-                                };
-                            }),
+                            id: doc.id,
+                            createdAt: parseDate(data.createdAt),
+                            updatedAt: parseDate(data.updatedAt),
+                            messages: (data.messages || []).map((m: any) => ({
+                                ...m,
+                                timestamp: parseDate(m.timestamp),
+                            })),
                         } as Conversation);
                     });
-                    set({ conversations });
+
+                    set({ conversations, loading: false });
                 } catch (error) {
-                    console.error('Error fetching conversations:', error);
-                } finally {
+                    console.error('Error fetching:', error);
                     set({ loading: false });
                 }
             },
@@ -273,36 +277,31 @@ export const useChatStore = create<ChatState>()(
                 const state = get();
                 return state.conversations.find(c => c.id === state.activeConversationId);
             },
-
-            getConversation: (id) => {
-                return get().conversations.find(c => c.id === id);
-            },
         })),
         {
             name: 'chat-storage',
+            storage: createJSONStorage(() => localStorage),
             partialize: (state) => ({
                 conversations: state.conversations.map(c => ({
                     ...c,
-                    // Convert dates to ISO strings for storage
-                    createdAt: c.createdAt instanceof Date ? c.createdAt.toISOString() : c.createdAt,
-                    updatedAt: c.updatedAt instanceof Date ? c.updatedAt.toISOString() : c.updatedAt,
+                    createdAt: serializeDate(c.createdAt),
+                    updatedAt: serializeDate(c.updatedAt),
                     messages: c.messages.map(m => ({
                         ...m,
-                        timestamp: m.timestamp instanceof Date ? m.timestamp.toISOString() : m.timestamp,
+                        timestamp: serializeDate(m.timestamp),
                     })),
                 })),
                 activeConversationId: state.activeConversationId,
             }),
             onRehydrateStorage: () => (state) => {
-                // Convert ISO strings back to Date objects
                 if (state) {
                     state.conversations = state.conversations.map(c => ({
                         ...c,
-                        createdAt: new Date(c.createdAt),
-                        updatedAt: new Date(c.updatedAt),
-                        messages: c.messages.map(m => ({
+                        createdAt: parseDate(c.createdAt),
+                        updatedAt: parseDate(c.updatedAt),
+                        messages: (c.messages || []).map(m => ({
                             ...m,
-                            timestamp: new Date(m.timestamp),
+                            timestamp: parseDate(m.timestamp),
                         })),
                     }));
                 }

@@ -8,7 +8,9 @@ import {
     type Content
 } from '@google/generative-ai';
 import { SYSTEM_PROMPT } from './prompts';
-import { FUNCTION_DECLARATIONS, executeToolCall } from './tools';
+import { FUNCTION_DECLARATIONS, executeToolCall, getEnabledFunctionDeclarations } from './tools';
+import { useApiKeyStore } from '@/stores/apiKeyStore';
+import { useSettingsStore } from '@/stores/settingsStore';
 
 export type GeminiModel = 'gemini-2.5-flash-lite' | 'gemini-2.5-flash';
 
@@ -25,14 +27,8 @@ export interface SendMessageResult {
     finishReason?: string;
 }
 
-// genAI instance cache
 const genAICache: Record<string, GoogleGenerativeAI> = {};
 
-import { useApiKeyStore } from '@/stores/apiKeyStore';
-
-/**
- * Initialize the Gemini client
- */
 function getClient(): GoogleGenerativeAI {
     const userApiKey = useApiKeyStore.getState().keys.gemini;
     const envApiKey = import.meta.env.VITE_GEMINI_API_KEY;
@@ -49,60 +45,40 @@ function getClient(): GoogleGenerativeAI {
     return genAICache[apiKey];
 }
 
-/**
- * Convert our function declarations to Gemini format
- */
-function convertToGeminiFunctionDeclarations(enabledToolIds: string[]): GeminiFunctionDeclaration[] {
-    const toolIdToFunctionName: Record<string, string> = {
-        'web_search': 'web_search',
-        'get_current_time': 'get_current_time',
-        'calculator': 'calculate',
+function mapToGeminiSchema(schema: any): any {
+    if (schema.type === 'object') {
+        return {
+            type: SchemaType.OBJECT,
+            properties: Object.fromEntries(
+                Object.entries(schema.properties || {}).map(([key, value]) => [key, mapToGeminiSchema(value)])
+            ),
+            required: schema.required,
+        };
+    }
+    if (schema.enum) {
+        return {
+            type: SchemaType.STRING,
+            description: schema.description,
+            format: 'enum',
+            enum: schema.enum,
+        };
+    }
+    return {
+        type: SchemaType.STRING,
+        description: schema.description,
     };
-
-    const enabledFunctions = enabledToolIds
-        .map(id => toolIdToFunctionName[id])
-        .filter(Boolean);
-
-    return FUNCTION_DECLARATIONS
-        .filter(fd => enabledFunctions.includes(fd.name))
-        .map(fd => ({
-            name: fd.name,
-            description: fd.description,
-            parameters: {
-                type: SchemaType.OBJECT,
-                properties: Object.fromEntries(
-                    Object.entries(fd.parameters.properties).map(([key, value]) => {
-                        // Handle enum vs regular string
-                        if (value.enum && value.enum.length > 0) {
-                            return [
-                                key,
-                                {
-                                    type: SchemaType.STRING,
-                                    description: value.description,
-                                    format: 'enum',
-                                    enum: value.enum,
-                                },
-                            ];
-                        }
-                        return [
-                            key,
-                            {
-                                type: SchemaType.STRING,
-                                description: value.description,
-                            },
-                        ];
-                    })
-                ),
-                required: fd.parameters.required,
-            },
-        }));
 }
 
-import { useSettingsStore } from '@/stores/settingsStore';
+function convertToGeminiFunctionDeclarations(enabledToolIds: string[]): GeminiFunctionDeclaration[] {
+    const enabledFunctions = getEnabledFunctionDeclarations(enabledToolIds);
 
-/**
- * Create a generative model with the specified configuration
- */
+    return enabledFunctions.map(fd => ({
+        name: fd.name,
+        description: fd.description,
+        parameters: mapToGeminiSchema(fd.parameters),
+    }));
+}
+
 export function createModel(options: GeminiClientOptions = {}): GenerativeModel {
     const {
         systemPrompt: storeSystemPrompt,
@@ -135,76 +111,72 @@ export function createModel(options: GeminiClientOptions = {}): GenerativeModel 
     });
 }
 
-/**
- * Create a chat session with optional history
- */
 export function createChat(options: GeminiClientOptions = {}, history: Content[] = []): ChatSession {
     const model = createModel(options);
     return model.startChat({ history });
 }
 
-/**
- * Send a message and handle tool calls
- */
 export async function sendMessage(
     chat: ChatSession,
     message: string,
+    onToken?: (token: string) => void,
     onToolCall?: (name: string, args: Record<string, unknown>) => Promise<void>
 ): Promise<SendMessageResult> {
-    const result = await chat.sendMessage(message);
-    const response = result.response;
+    const result = await chat.sendMessageStream(message);
+    let fullText = '';
 
-    const functionCalls = response.functionCalls();
+    for await (const chunk of result.stream) {
+        const chunkText = chunk.text();
+        fullText += chunkText;
+        if (onToken) onToken(chunkText);
+    }
 
-    // If no function calls, return the text response
+    const response = await result.response;
+    let functionCalls = response.functionCalls();
+
     if (!functionCalls || functionCalls.length === 0) {
         return {
-            text: response.text(),
+            text: fullText,
             finishReason: response.candidates?.[0]?.finishReason,
         };
     }
 
-    // Handle function calls
+    // Handle function calls (Gemini doesn't stream function calls well, so we handle them after the text stream)
     const toolCalls: Array<{ name: string; args: Record<string, unknown>; result: unknown }> = [];
 
-    for (const fc of functionCalls) {
-        const args = fc.args as Record<string, unknown>;
-
-        // Notify about tool call
-        if (onToolCall) {
-            await onToolCall(fc.name, args);
+    while (functionCalls && functionCalls.length > 0) {
+        for (const fc of functionCalls) {
+            const args = fc.args as Record<string, unknown>;
+            if (onToolCall) await onToolCall(fc.name, args);
+            const toolResult = await executeToolCall(fc.name, args);
+            toolCalls.push({ name: fc.name, args, result: toolResult });
         }
 
-        // Execute the tool
-        const toolResult = await executeToolCall(fc.name, args);
+        const functionResponseParts = toolCalls.map(tc => ({
+            functionResponse: {
+                name: tc.name,
+                response: tc.result as object,
+            },
+        }));
 
-        toolCalls.push({
-            name: fc.name,
-            args,
-            result: toolResult,
-        });
+        // Follow-up after tool execution (we could also stream this, but simpler for now)
+        const followUpResult = await chat.sendMessage(functionResponseParts);
+        const followUpResponse = followUpResult.response;
+
+        const followUpText = followUpResponse.text();
+        fullText += followUpText;
+        if (onToken) onToken(followUpText);
+
+        functionCalls = followUpResponse.functionCalls();
     }
 
-    // Send tool results back to the model using the correct format
-    const functionResponseParts = toolCalls.map(tc => ({
-        functionResponse: {
-            name: tc.name,
-            response: tc.result as object,
-        },
-    }));
-
-    const followUpResult = await chat.sendMessage(functionResponseParts);
-
     return {
-        text: followUpResult.response.text(),
+        text: fullText,
         toolCalls,
-        finishReason: followUpResult.response.candidates?.[0]?.finishReason,
+        finishReason: response.candidates?.[0]?.finishReason,
     };
 }
 
-/**
- * Generate content without chat context (single turn)
- */
 export async function generateContent(
     prompt: string,
     options: GeminiClientOptions = {}
@@ -214,16 +186,12 @@ export async function generateContent(
     return result.response.text();
 }
 
-/**
- * Check if Gemini is configured
- */
 export function isGeminiConfigured(): boolean {
-    return !!import.meta.env.VITE_GEMINI_API_KEY;
+    const userApiKey = useApiKeyStore.getState().keys.gemini;
+    const envApiKey = import.meta.env.VITE_GEMINI_API_KEY;
+    return !!(userApiKey || envApiKey);
 }
 
-/**
- * Get available models
- */
 export function getAvailableModels(): Array<{ id: GeminiModel; name: string; description: string }> {
     return [
         {
@@ -238,3 +206,4 @@ export function getAvailableModels(): Array<{ id: GeminiModel; name: string; des
         },
     ];
 }
+

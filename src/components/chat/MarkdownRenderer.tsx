@@ -190,7 +190,7 @@ export function MarkdownRenderer({ content, className = '' }: MarkdownRendererPr
         <div className={`markdown-content ${className}`}>
             <ReactMarkdown
                 remarkPlugins={[remarkGfm, remarkMath]}
-                rehypePlugins={[rehypeKatex, rehypeHighlight]}
+                rehypePlugins={[rehypeKatex]}
                 components={components}
             >
                 {content}
