@@ -5,11 +5,9 @@ import {
     Save,
     Settings2,
     Key,
-    Cpu,
     Eye,
     EyeOff,
-    Sparkles,
-    Sliders
+    Sparkles
 } from 'lucide-react';
 import { useSettingsStore } from '@/stores/settingsStore';
 import { useApiKeyStore, type APIKeys } from '@/stores/apiKeyStore';

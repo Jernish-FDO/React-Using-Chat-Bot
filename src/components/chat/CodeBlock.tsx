@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useMemo } from 'react';
 import { Copy, Check } from 'lucide-react';
 import { motion } from 'framer-motion';
 import hljs from 'highlight.js';
@@ -94,4 +94,3 @@ export function CodeBlock({ language, code }: CodeBlockProps) {
 }
 
 export default CodeBlock;
-
