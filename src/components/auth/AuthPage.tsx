@@ -124,7 +124,7 @@ export function AuthPage() {
                             type="submit"
                             variant="primary"
                             className="w-full py-3 rounded-xl shadow-lg shadow-accent-primary/20"
-                            loading={loading}
+                            isLoading={loading}
                             rightIcon={<ArrowRight size={18} />}
                         >
                             {isLogin ? 'Sign In' : 'Create Account'}
