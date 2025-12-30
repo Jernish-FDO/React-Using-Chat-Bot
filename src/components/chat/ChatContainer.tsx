@@ -117,7 +117,7 @@ export function ChatContainer() {
                 content: result.text || fullAssistantText || 'I received an empty response from the AI.',
                 metadata: {
                     thinkingTime,
-                    toolName: result.toolCalls?.[0]?.name ?? null,
+                    toolName: result.toolCalls?.[0]?.name ?? undefined,
                     toolResults: result.toolCalls ?? null,
                     isStreaming: false
                 },
