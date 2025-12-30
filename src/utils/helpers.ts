@@ -139,13 +139,11 @@ export function sanitizeForFirestore<T>(obj: T): T {
 
     if (typeof obj === 'object') {
         const result: any = {};
-        let hasKeys = false;
         for (const key in obj) {
             if (Object.prototype.hasOwnProperty.call(obj, key)) {
                 const value = (obj as any)[key];
                 if (value !== undefined) {
                     result[key] = sanitizeForFirestore(value);
-                    hasKeys = true;
                 }
             }
         }

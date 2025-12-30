@@ -13,7 +13,6 @@ import { sendMessage as sendGroqMessage } from '@/lib/groq/client';
 export function ChatContainer() {
     const messagesEndRef = useRef<HTMLDivElement>(null);
 
-    const activeConversationId = useChatStore(state => state.activeConversationId);
     const isGenerating = useChatStore(state => state.isGenerating);
     const error = useChatStore(state => state.error);
     const conversation = useChatStore(state =>

@@ -8,7 +8,7 @@ import {
     type Content
 } from '@google/generative-ai';
 import { SYSTEM_PROMPT } from './prompts';
-import { FUNCTION_DECLARATIONS, executeToolCall, getEnabledFunctionDeclarations } from './tools';
+import { executeToolCall, getEnabledFunctionDeclarations } from './tools';
 import { useApiKeyStore } from '@/stores/apiKeyStore';
 import { useSettingsStore } from '@/stores/settingsStore';
 
@@ -206,4 +206,3 @@ export function getAvailableModels(): Array<{ id: GeminiModel; name: string; des
         },
     ];
 }
-
