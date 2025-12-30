@@ -7,7 +7,6 @@ import {
     Sun,
     Moon,
     PlusCircle,
-    LogIn,
     LogOut,
     User as UserIcon
 } from 'lucide-react';
