@@ -53,3 +53,4 @@ vite-debug.log*
 # If you don't wish to track compiled .js files from ts:
 # *.js
 # *.map
+.vercel
